@@ -6,6 +6,7 @@ import nltk
 from nltk import tokenize
 import seaborn as sns
 import matplotlib.pyplot as plt
+from banco import Banco
 
 def classificar_texto(df_name, avaliacao, sentimento):
   
@@ -14,7 +15,7 @@ def classificar_texto(df_name, avaliacao, sentimento):
 
     X_treino, X_teste, y_treino, y_teste = train_test_split(bag_of_words, df_name[sentimento])
 
-    regressao_logistica = LogisticRegression()
+    regressao_logistica = LogisticRegression(max_iter=500)
     regressao_logistica.fit(X_treino, y_treino)
     acuracia = regressao_logistica.score(X_teste, y_teste)
     return acuracia
@@ -34,10 +35,20 @@ def grafico_frequencia(df_name, coluna, qttd):
     ax.set(ylabel='Contagem')
     plt.show()
 
+def treino_modelo(dataset, avaliacao, sentimento):
 
-df = pd.read_csv('https://raw.githubusercontent.com/alura-cursos/nlp_analise_sentimento/refs/heads/main/Dados/dataset_avaliacoes.csv')
+    if dataset.endswith('.json'):
+        df = pd.read_json(dataset)
+    else:
+        df = pd.read_csv(dataset)
 
-acc = classificar_texto(df, 'avaliacao', 'sentimento')
-print(f'{acc*100}% de acurácia')
+    acc = classificar_texto(df, avaliacao, sentimento)
+    print(f'{acc*100}% de acurácia')
+    grafico_frequencia(df, avaliacao, 5)
 
-grafico_frequencia(df, 'avaliacao', 5)
+treino_modelo('data/bbc_data.csv', 'data', 'labels')
+
+# db = Banco()
+# df = pd.read_csv('data/dataset.csv')
+# data_dict = df.to_dict("records")
+# db.inserir_dados(df)
