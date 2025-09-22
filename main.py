@@ -5,7 +5,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import joblib
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report, confusion_matrix
 from nltk.corpus import stopwords
@@ -37,7 +37,23 @@ def preprocessar_texto(texto):
     tokens = [lemmatizer.lemmatize(t) for t in tokens]
     return " ".join(tokens)
 
-def classificar_texto(df, coluna_texto, coluna_alvo, salvar_modelo=False):
+def otimizar_modelo(X_treino, y_treino):
+    """Usa GridSearchCV para buscar melhores hiperparâmetros da regressão logística"""
+    param_grid = {
+        "C": [0.1, 1, 10],                # força de regularização
+        "solver": ["lbfgs", "saga"],      # solvers que suportam multinomial
+        "penalty": ["l2"],                # penalização L2
+        "class_weight": ["balanced", None]
+    }
+
+    logreg = LogisticRegression(max_iter=1000, multi_class="multinomial")
+    grid = GridSearchCV(logreg, param_grid, cv=3, scoring="f1_weighted", verbose=2, n_jobs=-1)
+    grid.fit(X_treino, y_treino)
+
+    print(f"🔍 Melhor combinação de parâmetros: {grid.best_params_}")
+    return grid.best_estimator_
+
+def classificar_texto(df, coluna_texto, coluna_alvo, salvar_modelo=False, usar_gridsearch=False):
     df[coluna_texto] = df[coluna_texto].astype(str).apply(preprocessar_texto)
 
     vetorizar = TfidfVectorizer(max_features=5000, ngram_range=(1,2))
@@ -51,7 +67,11 @@ def classificar_texto(df, coluna_texto, coluna_alvo, salvar_modelo=False):
         X, y, test_size=0.2, random_state=42, stratify=y
     )
 
-    modelo = LogisticRegression(max_iter=1000, class_weight="balanced", multi_class="multinomial")
+    if usar_gridsearch:
+        modelo = otimizar_modelo(X_treino, y_treino)
+    else:
+        modelo = LogisticRegression(max_iter=1000, class_weight="balanced", multi_class="multinomial")
+
     modelo.fit(X_treino, y_treino)
     y_pred = modelo.predict(X_teste)
 
@@ -83,7 +103,7 @@ def grafico_frequencia(df, coluna_texto, qttd=20):
     ax.set(ylabel="Contagem")
     plt.show()
 
-def treino_modelo(dataset, coluna_alvo, salvar_modelo=False):
+def treino_modelo(dataset, coluna_alvo, salvar_modelo=False, usar_gridsearch=False):
     if dataset.endswith(".json"):
         df = pd.read_json(dataset)
     else:
@@ -106,7 +126,6 @@ def treino_modelo(dataset, coluna_alvo, salvar_modelo=False):
     df[coluna_alvo] = df[coluna_alvo].replace('Other financial service', 
                                               'Bank account or service')
     
-
     df['Issue'] = df['Issue'].fillna('')
     df['Sub-issue'] = df['Sub-issue'].fillna('')
     df['Consumer complaint narrative'] = df['Consumer complaint narrative'].fillna('')
@@ -117,7 +136,7 @@ def treino_modelo(dataset, coluna_alvo, salvar_modelo=False):
     df['texto_combinado'] = df['texto_combinado'].apply(limpar_texto)
 
     _, _, _, encoder, y_teste, y_pred = classificar_texto(
-        df, 'texto_combinado', coluna_alvo, salvar_modelo=salvar_modelo
+        df, 'texto_combinado', coluna_alvo, salvar_modelo=salvar_modelo, usar_gridsearch=usar_gridsearch
     )
 
     grafico_frequencia(df, 'texto_combinado')
@@ -131,5 +150,5 @@ def treino_modelo(dataset, coluna_alvo, salvar_modelo=False):
     plt.title("Matriz de Confusão")
     plt.show()
 
-# Exemplo de treino e salvamento
-treino_modelo("data/rows.csv", "Product", salvar_modelo=True)
+# Exemplo de treino com otimização
+treino_modelo("data/rows.csv", "Product", salvar_modelo=True, usar_gridsearch=True)
