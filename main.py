@@ -91,6 +91,21 @@ def treino_modelo(dataset, coluna_alvo, salvar_modelo=False):
 
     df[coluna_alvo] = df[coluna_alvo].replace('Virtual currency', 
                                               'Money transfer, virtual currency, or money service')
+    df[coluna_alvo] = df[coluna_alvo].replace('Money transfers', 
+                                              'Money transfer, virtual currency, or money service')
+    df[coluna_alvo] = df[coluna_alvo].replace('Credit card', 
+                                              'Credit card or prepaid card')
+    df[coluna_alvo] = df[coluna_alvo].replace('Prepaid card', 
+                                              'Credit card or prepaid card')
+    df[coluna_alvo] = df[coluna_alvo].replace('Credit reporting', 
+                                              'Credit reporting, credit repair services, or other personal consumer reports')
+    df[coluna_alvo] = df[coluna_alvo].replace('Payday loan', 
+                                              'Payday loan, title loan, or personal loan')
+    df[coluna_alvo] = df[coluna_alvo].replace('Payday loan, title loan', 
+                                              'Payday loan, title loan, or personal loan')
+    df[coluna_alvo] = df[coluna_alvo].replace('Other financial service', 
+                                              'Bank account or service')
+    
 
     df['Issue'] = df['Issue'].fillna('')
     df['Sub-issue'] = df['Sub-issue'].fillna('')
