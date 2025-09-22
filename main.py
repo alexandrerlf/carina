@@ -11,6 +11,7 @@ from sklearn.metrics import classification_report, confusion_matrix
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from nltk.tokenize import word_tokenize
+from sklearn.preprocessing import LabelEncoder
 
 # baixar recursos necessários
 nltk.download("punkt")
@@ -41,27 +42,31 @@ def classificar_texto(df, coluna_texto, coluna_alvo, salvar_modelo=False):
 
     vetorizar = TfidfVectorizer(max_features=5000, ngram_range=(1,2))
     X = vetorizar.fit_transform(df[coluna_texto])
-    y = df[coluna_alvo]
+
+    # LabelEncoder para o alvo
+    le = LabelEncoder()
+    y = le.fit_transform(df[coluna_alvo])
 
     X_treino, X_teste, y_treino, y_teste = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y
     )
 
-    modelo = LogisticRegression(max_iter=1000, class_weight="balanced")
+    modelo = LogisticRegression(max_iter=1000, class_weight="balanced", multi_class="multinomial")
     modelo.fit(X_treino, y_treino)
     y_pred = modelo.predict(X_teste)
 
     acc = modelo.score(X_teste, y_teste)
     print(f"\nAcurácia: {acc*100:.2f}%\n")
-    print("Relatório de Classificação (precision, recall, f1 por classe):\n")
-    print(classification_report(y_teste, y_pred))
+    print("Relatório de Classificação:\n")
+    print(classification_report(y_teste, y_pred, target_names=le.classes_))
 
     if salvar_modelo:
         joblib.dump(modelo, "data/modelo_logreg.pkl")
         joblib.dump(vetorizar, "data/vetorizador_tfidf.pkl")
-        print("✅ Modelo e vetorizador salvos em disco!")
+        joblib.dump(le, "data/label_encoder.pkl")
+        print("✅ Modelo, vetorizador e label encoder salvos!")
 
-    return acc, vetorizar, modelo, y_teste, y_pred
+    return acc, vetorizar, modelo, le, y_teste, y_pred
 
 def grafico_frequencia(df, coluna_texto, qttd=20):
     todas_palavras = " ".join(df[coluna_texto])
@@ -96,7 +101,7 @@ def treino_modelo(dataset, coluna_alvo, salvar_modelo=False):
     )
     df['texto_combinado'] = df['texto_combinado'].apply(limpar_texto)
 
-    acc, vetorizar, modelo, y_teste, y_pred = classificar_texto(
+    _, _, _, encoder, y_teste, y_pred = classificar_texto(
         df, 'texto_combinado', coluna_alvo, salvar_modelo=salvar_modelo
     )
 
@@ -105,7 +110,7 @@ def treino_modelo(dataset, coluna_alvo, salvar_modelo=False):
     cm = confusion_matrix(y_teste, y_pred)
     plt.figure(figsize=(10,6))
     sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
-                xticklabels=modelo.classes_, yticklabels=modelo.classes_)
+                xticklabels=encoder.classes_, yticklabels=encoder.classes_)
     plt.xlabel("Predito")
     plt.ylabel("Real")
     plt.title("Matriz de Confusão")
