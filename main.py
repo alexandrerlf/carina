@@ -12,6 +12,7 @@ from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from nltk.tokenize import word_tokenize
 from sklearn.preprocessing import LabelEncoder
+from imblearn.over_sampling import RandomOverSampler
 
 # baixar recursos necessários
 nltk.download("punkt")
@@ -40,13 +41,13 @@ def preprocessar_texto(texto):
 def otimizar_modelo(X_treino, y_treino):
     """Usa GridSearchCV para buscar melhores hiperparâmetros da regressão logística"""
     param_grid = {
-        "C": [0.1, 1, 10],                # força de regularização
-        "solver": ["lbfgs", "saga"],      # solvers que suportam multinomial
-        "penalty": ["l2"],                # penalização L2
-        "class_weight": ["balanced", None]
+        "C": [0.01, 0.1, 1, 10, 100],          # menor melhora o overfitting
+        "solver": ["lbfgs", "saga", "newton-cg"], 
+        "penalty": ["l1", "l2", "elasticnet"], # l1 (sparse), l2 (default), elasticnet (mix)
+        "class_weight": ["balanced", None],
+        "max_iter": [500, 1000, 2000]          # ver se convergência muda algo
     }
-
-    logreg = LogisticRegression(max_iter=1000, multi_class="multinomial")
+    logreg = LogisticRegression(max_iter=1000)
     grid = GridSearchCV(logreg, param_grid, cv=3, scoring="f1_weighted", verbose=2, n_jobs=-1)
     grid.fit(X_treino, y_treino)
 
@@ -67,10 +68,14 @@ def classificar_texto(df, coluna_texto, coluna_alvo, salvar_modelo=False, usar_g
         X, y, test_size=0.2, random_state=42, stratify=y
     )
 
+    # 🔥 Balanceamento: duplica a classe minoritária só no treino
+    ros = RandomOverSampler(random_state=42)
+    X_treino, y_treino = ros.fit_resample(X_treino, y_treino)
+
     if usar_gridsearch:
         modelo = otimizar_modelo(X_treino, y_treino)
     else:
-        modelo = LogisticRegression(max_iter=1000, class_weight="balanced", multi_class="multinomial")
+        modelo = LogisticRegression(max_iter=1000, class_weight="balanced")
 
     modelo.fit(X_treino, y_treino)
     y_pred = modelo.predict(X_teste)
