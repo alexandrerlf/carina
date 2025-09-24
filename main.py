@@ -75,7 +75,7 @@ def classificar_texto(df, coluna_texto, coluna_alvo, salvar_modelo=False, usar_g
     if usar_gridsearch:
         modelo = otimizar_modelo(X_treino, y_treino)
     else:
-        modelo = LogisticRegression(max_iter=1000, class_weight="balanced")
+        modelo = LogisticRegression(C=1.0, class_weight="balanced", solver="saga", penalty="l2", max_iter=1000)
 
     modelo.fit(X_treino, y_treino)
     y_pred = modelo.predict(X_teste)
